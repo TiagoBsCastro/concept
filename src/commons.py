@@ -513,7 +513,8 @@ def get_matplotlib():
     import matplotlib
     matplotlib.use('agg')
     # Now import the pyplot interface
-    import matplotlib.pyplot as plt
+    with warnings.catch_warnings(action='ignore', category=DeprecationWarning):
+        import matplotlib.pyplot as plt
     # Customize Matplotlib
     matplotlib.rcParams.update({
         # Use a nice font that ships with Matplotlib

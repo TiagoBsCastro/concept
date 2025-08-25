@@ -1,5 +1,5 @@
 # Basics
-FROM debian:11.6-slim
+FROM debian:12.11-slim
 SHELL ["/usr/bin/env", "bash", "-c"]
 CMD ["bash"]
 
@@ -77,10 +77,9 @@ RUN : \
     && sudo rm -rf /var/lib/{apt/lists,cache,log}/* \
     && sudo rm -rf $(sudo ls /var/lib/dpkg/info/* | grep -v "\.list") \
     # Remove other caches
-    && sudo rm -rf /tmp/* ~/.cache/* \
+    && sudo rm -rf /tmp/* /var/cache/* ~/.cache/* \
     # Remove some system files
     && sudo rm -rf /usr/share/{doc,info,man}/* \
-    && sudo rm -f $(sudo find / -name "*.a" 2>/dev/null | grep -v "/libgcc.a\|/libc_nonshared.a") \
     && sudo rm -f /usr/lib/x86_64-linux-gnu/lib{crypto,db-*,*san*}.so* \
     && sudo rm -f /usr/bin/x86_64-linux-gnu-lto-dump-* \
     && :

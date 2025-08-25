@@ -102,7 +102,7 @@ directory consist of the following and will be installed in order:
   - OpenBLAS (needed by SciPy, used by NumPy)
   - Python, with the following packages
     (along with their own Python package dependencies):
-      - pip, setuptools, wheel (if any of the below)
+      - pip, setuptools, setuptools_scm, wheel (if any of the below)
       - Blessings
       - Cython
       - CythonGSL
@@ -305,7 +305,7 @@ set_version "fftw_for_gadget"   "2.1.5"   "2.1.5"   # Do not change
 set_version "gadget"            "2.0.7"   "2.0.7"   # Do not change
 set_version "gsl"               "2.7.1"   "2.7.1"
 set_version "hdf5"              "1.14.0"
-set_version "libffi"            "3.4.4"   "3.4.3"
+set_version "libffi"            "3.4.8"   "3.4.7"
 if [ "${mpi}" == "mpich" ]; then
     set_version "mpi"           "4.1.1"   "4.1.1"
 elif [ "${mpi}" == "openmpi" ]; then
@@ -314,19 +314,20 @@ fi
 set_version "ncurses"           "6.4"     "6.4"
 set_version "openssl"           "3.0.8"   "3.0.7"
 set_version "perl"              "5.36.0"
-set_version "python"            "3.11.3"
+set_version "python"            "3.11.13"
 set_version "zlib"              "1.2.13"  "1.2.13"
 # Python packages
 set_version "blessings"         "1.7"
-set_version "cython"            "0.29.33"
+set_version "cython"            "0.29.37"
 set_version "cythongsl"         "0.2.2"
-set_version "h5py"              "3.8.0"
-set_version "matplotlib"        "3.7.1"
-set_version "mpi4py"            "3.1.4"
-set_version "numpy"             "1.24.2"
-set_version "pip"               "23.1.2"
+set_version "h5py"              "3.9.0"
+set_version "matplotlib"        "3.7.5"
+set_version "mpi4py"            "3.1.6"
+set_version "numpy"             "1.26.4"
+set_version "pip"               "23.3.2"
 set_version "scipy"             "1.10.1"
-set_version "setuptools"        "67.7.2"
+set_version "setuptools"        "59.8.0"
+set_version "setuptools_scm"    "7.1.0"
 set_version "sphinx"            "6.2.1"
 set_version "sphinx_copybutton" "0.5.0"
 set_version "sphinx_rtd_theme"  "1.2.1"
@@ -7396,20 +7397,21 @@ print(name, vreq)
     done
 }
 
-# Upgrade/install pip, setuptools and wheel.
+# Upgrade/install pip, setuptools, setuptools_scm and wheel.
 # Do not use the pip_download or pip_install_pypackage functions
 # for this, as these packages (and their dependencies) may actually be
 # needed for that to work, resulting in a bootstrapping problem.
 # This problem really arises from the choice of installing Python
-# packages from source. Let 'pip install' upgrade pip, setuptools and
-# wheel by whatever means it wants, ensuring that the dependencies of
-# these bootstrapping packages are installed/upgraded as well.
+# packages from source. Let 'pip install' upgrade pip, setuptools,
+# setuptools_scm and wheel by whatever means it wants, ensuring that
+# the dependencies of these bootstrapping packages are
+# installed/upgraded as well.
 if [ "${pip_install}" == "True" ] && [ "${python_install}" == "True" ]; then
     tmp_pip_dir="${tmp_dir}/pip"
     export TMPDIR="${tmp_pip_dir}_tmp"
     export TEMP="${TMPDIR}"
     export TMP="${TMPDIR}"
-    for package in "pip" "setuptools" "wheel"; do
+    for package in "pip" "setuptools" "setuptools_scm" "wheel"; do
         if [ "${python_installed}" == "True" ]; then
             if [ "$(check_pypackage_installed "${package}")" == "True" ]; then
                 continue
@@ -7482,10 +7484,11 @@ for i, package in enumerate(packages):
 print('\n'.join(packages))
 " | awk '{print $1}')"
     while read package; do
-        # No need to attempt updates of pip, setuptools and wheel,
-        # as these have just been updated.
-        if     [ "${package}" == "pip"        ] \
-            || [ "${package}" == "setuptools" ] \
+        # No need to attempt updates of pip, setuptools, setuptools_scm
+        # and wheel, as these have just been updated.
+        if     [ "${package}" == "pip"            ] \
+            || [ "${package}" == "setuptools"     ] \
+            || [ "${package}" == "setuptools_scm" ] \
             || [ "${package}" == "wheel"      ]; then
             continue
         fi
@@ -8126,7 +8129,6 @@ if [ "${matplotlib_install}" == "True" ] && [ "${matplotlib_installed}" == "Fals
     dependencies=(       \
         "certifi"        \
         "pybind11"       \
-        "setuptools_scm" \
     )
     for dependency in "${dependencies[@]}"; do
         dependency_installed=$(check_pypackage_installed ${dependency})
@@ -8375,7 +8377,6 @@ print(inspect.getfile(bdist_egg))
             removable_dependencies=( \
                 "certifi"            \
                 "pybind11"           \
-                "setuptools_scm"     \
             )
             for dependency in "${removable_dependencies[@]}"; do
                 eval "dependency_installed=\"\${${dependency}_installed}\""
@@ -8506,8 +8507,19 @@ if [ "${h5py_install}" == "True" ] && [ "${h5py_installed}" == "False" ] \
         if [ "${use_pip_install_pypackage}" == "True" ]; then
             pip_install_pypackage "H5Py" "${h5py_version}" || return 1
         else
-            "${python}" -m pip install -v --no-cache-dir --no-build-isolation \
-                --no-binary=h5py h5py=="${h5py_version}" || :
+            for extra_pip_arg in \
+                "--no-cache-dir                     " \
+                "--no-cache-dir --no-build-isolation" \
+                "               --no-build-isolation" \
+                "                                   " \
+            ; do
+                "${python}" -m pip uninstall "h5py" -y >/dev/null 2>&1 || :
+                "${python}" -m pip install -v ${extra_pip_arg} \
+                    --no-binary=h5py h5py=="${h5py_version}" || :
+                if [ "$(check_pypackage_installed h5py True)" == "True" ]; then
+                    break
+                fi
+            done
         fi
         if [ "$(check_pypackage_installed h5py True)" == "False" ]; then
             return 1
