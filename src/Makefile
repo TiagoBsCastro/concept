@@ -181,11 +181,13 @@ ifneq ($(optimizations),False)
     optimization_flags_linker += -O3
     # Python/Cython optimizations
     optimization_flags += -DCYTHON_WITHOUT_ASSERTIONS
-    # Floating-point optimizations
+    # Floating-point optimizations. CO𝘕CEPT uses infinities as sentinels,
+    # so retain their semantics while enabling the remaining fast-math
+    # optimizations.
     ifeq ($(compiler),gcc)
-        optimization_flags += -ffast-math
+        optimization_flags += -ffast-math -fno-finite-math-only
     else ifeq ($(compiler),clang)
-        optimization_flags += -ffast-math
+        optimization_flags += -ffast-math -fno-finite-math-only
     else ifeq ($(compiler),icc)
         optimization_flags += -fp-model fast=2
     endif
